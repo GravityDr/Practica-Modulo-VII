@@ -1,52 +1,66 @@
 # Practica-Modulo-VII
 
 ==============================
-Práctica Módulo VII - Instrucciones Completas
-==============================
+En el Servidor (Red Hat - 10.0.0.34):
 
-Antes de comenzar, crea un snapshot de cada VM (VM Server, VM Linux Cliente y VM Windows 10).
+# 1. Instalar NFS
+sudo dnf install nfs-utils -y
 
----------------------------------------------------------------------
-Práctica 1: Compartir archivos entre Linux utilizando NFS
----------------------------------------------------------------------
+# 2. Crear directorio y archivos
+sudo mkdir /OS3
+cd /OS3
+sudo touch Adrian{1..100}.txt
 
-[VM Server – Tu distro Linux (ej. Red Hat 8)]
------------------------------------------------------
-1. Instalar y habilitar NFS:
-   sudo dnf install -y nfs-utils
-   sudo systemctl enable --now nfs-server rpcbind
+# 3. Asignar permisos
+sudo chmod -R 777 /OS3
+sudo chown nobody:nobody /OS3
 
-2. Crear el directorio de compartición y 100 archivos:
-   sudo mkdir -p /srv/nfs/OS3
-   for i in {1..100}; do
-       echo "Contenido del archivo $i" > /srv/nfs/OS3/Adrian${i}.txt
-   done
+# 4. Configurar exports
+echo "/OS3 10.0.0.63(rw,sync,no_root_squash)" | sudo tee -a /etc/exports
 
-3. Asignar permisos (para que sea accesible desde otras máquinas):
-   sudo chown -R nobody:nobody /srv/nfs/OS3
-   sudo chmod -R 777 /srv/nfs/OS3
+# 5. Habilitar servicios y aplicar cambios
+sudo systemctl enable --now nfs-server rpcbind
+sudo exportfs -a
 
-4. Configurar exportaciones:
-   echo "/srv/nfs/OS3 *(rw,sync,no_root_squash,no_subtree_check)" | sudo tee -a /etc/exports
-   sudo exportfs -rav
-   sudo systemctl restart nfs-server
+# 6. Configurar firewall (opcional, si hay bloqueos)
+sudo firewall-cmd --permanent --add-service=nfs
+sudo firewall-cmd --permanent --add-service=mountd
+sudo firewall-cmd --permanent --add-service=rpc-bind
+sudo firewall-cmd --reload
 
-[VM Linux Cliente – La distro Linux de tu preferencia]
------------------------------------------------------
-1. Instalar el cliente NFS:
-   sudo dnf install -y nfs-utils
 
-2. Crear el punto de montaje y montar el recurso compartido:
-   (Reemplaza <IP_DEL_SERVIDOR> por la dirección IP de la VM Server)
-   sudo mkdir -p /mnt/nfs_OS3
-   sudo mount -t nfs <IP_DEL_SERVIDOR>:/srv/nfs/OS3 /mnt/nfs_OS3
-   ls /mnt/nfs_OS3   # Verifica que aparecen los archivos Adrian1.txt ... Adrian100.txt
+En el Cliente (Linux Mint - 10.0.0.63):
 
-3. Configurar montaje persistente:
-   echo "<IP_DEL_SERVIDOR>:/srv/nfs/OS3 /mnt/nfs_OS3 nfs defaults 0 0" | sudo tee -a /etc/fstab
-   sudo reboot
-   # Tras reiniciar, verifica con:
-   ls /mnt/nfs_OS3
+# 1. Instalar cliente NFS
+sudo apt update && sudo apt install nfs-common -y
+
+# 2. Crear directorio de montaje
+sudo mkdir -p /mnt/OS3
+
+# 3. Montar manualmente (prueba inicial)
+sudo mount -t nfs 10.0.0.34:/OS3 /mnt/OS3
+
+# 4. Verificar archivos
+ls /mnt/OS3  # Deberías ver Adrian1.txt ... Adrian100.txt
+
+# 5. Configurar montaje automático en fstab
+echo "10.0.0.34:/OS3 /mnt/OS3 nfs defaults,_netdev 0 0" | sudo tee -a /etc/fstab
+
+# 6. Probar montaje automático
+sudo mount -a
+
+# 7. Reiniciar y verificar (después del reinicio)
+sudo reboot
+
+
+Después de Reiniciar el Cliente:
+bash
+Copy
+# Verificar montaje automático
+df -h | grep OS3  # Debe mostrar /mnt/OS3 montado
+
+# Listar archivos compartidos
+ls /mnt/OS3
 
 ---------------------------------------------------------------------
 Práctica 2: Creación de FileServer compatible con Windows utilizando SAMBA
